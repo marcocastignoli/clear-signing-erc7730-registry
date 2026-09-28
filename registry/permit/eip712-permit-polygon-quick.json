@@ -9,5 +9,7 @@
       "domain": { "name": "QuickSwap" }
     }
   },
-  "metadata": { "owner": "QuickSwap" }
+  "metadata": {
+    "owner": "QuickSwap"
+  }
 }
