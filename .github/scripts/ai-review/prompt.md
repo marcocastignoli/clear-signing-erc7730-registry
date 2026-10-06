@@ -28,32 +28,43 @@ Deterministic checks ran before you and passed. Do not report, even if you notic
 
 ## Severity
 
-- `critical`: the signer can lose money or sign something other than what the screen says. The screen shows a recipient, an amount, a token, a spender, a deadline or an action that differs from what the code does, or hides a value that changes any of those. Be conservative: only when a normal signer would be shocked by what actually happens. A fee, tax, burn or cut taken from the amount on the screen and not stated there is critical, whatever its size and whoever receives it: the recipient gets less than the signer was told.
-- `warning`: the screen is wrong, incomplete or misleading without a direct loss: a wrong label, a raw value where a formatted one exists, a hidden value that matters but cannot be used to steal, a test that does not exercise what it claims.
-- `info`: a spec limitation, a suggestion, a doubt you could not resolve from the source.
+Severity is about the outcome for the signer, not about how wrong the wording is. Decide it for every finding with these three questions, in this order, and stop at the first yes:
 
-In doubt between `warning` and `info`, choose `info`: a `warning` with a fix makes the author change the descriptor, so give it only when the change is clearly right. Never downgrade a `critical`: when the screen misstates who gets how much, it is critical even if the loss is small.
+1. **Does the outcome differ from what the screen states?** The outcome is what the transaction does to the signer's assets and rights: who receives, how much, in which token, which spender gets which allowance, who becomes owner or delegate, until when, and which contract the data is decoded for. When the screen states one of these and the code does another, or hides a calldata value that changes one of these, the finding is `critical`. Size does not matter: a recipient who gets 90% of the amount shown is a critical, whoever keeps the rest.
+2. **Is a displayed value wrong, missing or misleading in a way a descriptor change fixes, while the outcome is as the screen implies?** Then `warning`: a wrong label, a raw value where a format exists, a wrong unit or date encoding, a goal named instead of the step when that could make the signer skip a step or expect funds this call does not deliver, a test that does not exercise what it claims.
+3. **Everything else is `info`**: a value no descriptor can show, a suggestion, a doubt you could not resolve from the source.
 
-A value that lives in the contract's storage and not in the calldata (a treasury or beneficiary address, an owner, a fee setting, a price) cannot be shown by any descriptor. Its absence is a `spec-limitation` `info` at most, never a `critical`, unless the screen states something different from what the code does with it: a payment that goes to the contract's treasury is what a purchase screen implies, an amount the recipient does not receive in full is not.
+A `critical` must name the difference in the Outcome line of the finding: which asset, allowance or right ends up other than stated. If you cannot write that sentence with a concrete asset or right, the finding is not critical. In doubt between `warning` and `info`, choose `info`: a `warning` with a fix makes the author change the descriptor, so give it only when the change is clearly right.
 
-An intent that overstates or understates the step this call performs is not critical by itself. When the signer's assets, allowances, ownership and delegations end up exactly as the screen implies, a wording that names the goal of a multi-step flow ("Migrate", "Purchase") instead of the step ("Initiate migration") is a `warning` if it could make the signer skip a step or expect funds that do not arrive in this call, and an `info` otherwise. A `critical` needs a different outcome: a recipient, an amount, a token, a spender, a deadline, an approval, an owner or a delegate other than the one the screen shows.
+Common cases and their severity:
+
+| Case | Severity | Why |
+|---|---|---|
+| A fee, tax, burn or cut taken from the amount on the screen and not stated there | critical | the recipient gets less than the signer was told |
+| An amount shown in the wrong token (`tokenPath` of the other side of a swap) | critical | the signer reads the wrong value |
+| A calldata recipient, spender or callee hidden or shown as another field | critical | who gets the assets or the allowance differs |
+| An enum or map label that names another value than the code switches on | critical | the action stated is not the action executed |
+| An EIP-712 domain or type that the verifying contract does not use | critical | the signature is valid for something other than the screen |
+| A value in storage, not in the calldata: a treasury or beneficiary address, an owner, a fee rate, a price | info | no descriptor can show it; a payment to the contract's treasury is what a purchase screen implies |
+| An intent that names the goal of a multi-step flow ("Migrate", "Purchase") instead of the step this call performs ("Initiate migration") | warning or info | the signer's assets end up as implied; warning only when the wording could make them skip a step or expect funds this call does not deliver |
+| An allowance consumed by `transferFrom`, a nonce, or another bookkeeping value the signer does not choose | not a finding | it changes nothing about who gets what |
+| A `threshold` for "unlimited" that is not the exact maximum the code treats specially | warning | the display is imprecise, the allowance is as shown |
+| A parameter that can only be shown as raw packed bits, pool ids or flags, and does not change who gets what | info, as spec-limitation | if it does change who gets what, say so with the pattern you saw |
 
 ## Do not flag
 
 - A value that starts with `$` is a reference to `metadata.constants`, `metadata.enums`, `metadata.maps` or `display.definitions`; wallets resolve it. Flag it only if the referenced key does not exist or has the wrong type.
 - A `null` where the schema allows it (constants, map values, entries of `visible.ifNotIn` or `visible.mustMatch`).
 - Optional features of the v2 schema that a descriptor does not use. Not using `fieldGroup`, `maps` or `interpolatedIntent` is not a defect.
-- A parameter that can only be shown as incomprehensible raw data (packed bits, pool ids, technical flags) and that does not change who gets what. Hiding it is not critical; if it does change who gets what, report it as a spec limitation with the pattern you saw.
 - Slicing a packed address type (`type X is uint256` with flags in the high bits) is intentional. Slicing an amount is critical.
 - Style, ordering of fields, wording preferences.
-- A hidden `nonce`, or another bookkeeping value the signer does not choose and that changes nothing about who gets what. No wallet shows a nonce.
 
 ## The checks
 
 For every format key of `head.display.formats`, find the function (or the primary type) in the source of the implementation, read its body and the internal calls it makes, and answer the questions below. The list names the mistakes we know; it is not complete. Anything else that makes the screen say something other than what the code does, or that a careful auditor would raise, is a finding too: report it under `other`.
 
-1. **intent-truthfulness.** Does `intent` say what the function does? Does the function have a side effect the intent hides: an approval, a transfer to a third address, a fee, a permanent setting, a delegation?
-2. **hidden-values.** For every value the signer does not see, does hiding it change what the transaction does or means? Hidden means: a parameter absent from `fields`, `visible: never`, `visible: optional`, or conditionally hidden by `ifNotIn` or `mustMatch`; array elements beyond the ones shown; slices of a value; the native value `@.value` of a payable function; `@.to` when a call can be routed elsewhere.
+1. **intent-truthfulness.** Does `intent` say what the function does? Does the function have a side effect the intent hides: an approval, a transfer to a third address, a fee, a permanent setting, a delegation? A hidden side effect on the signer's assets or rights is critical; an intent that is imprecise about a step while the outcome is as implied is a warning at most.
+2. **hidden-values.** For every value the signer does not see, does hiding it change what the transaction does or means? Hidden means a calldata value the descriptor could show and does not: a parameter absent from `fields`, `visible: never`, `visible: optional`, or conditionally hidden by `ifNotIn` or `mustMatch`; array elements beyond the ones shown; slices of a value; the native value `@.value` of a payable function; `@.to` when a call can be routed elsewhere.
 3. **field-format.** Does each displayed field use the format and parameters that match the parameter's meaning in the code? An amount with the `tokenPath` of its own token (the input token for an input amount, the output token for a minimum received), `threshold` and `message` where the code treats a maximum as unlimited, `nativeCurrencyAddress` where the code treats an address as native currency, a date with the right `encoding`, `unit` formats, `addressName` with plausible `types` and `sources`, slices such as `.[12:32]` on the right bytes, `raw` only when nothing better exists.
 4. **interpolated-intent.** Does `interpolatedIntent` read as a correct sentence, say the same as `intent`, and reference only fields that have a format and are always visible?
 5. **special-values.** Does the code treat a value specially and does the descriptor show it that way? Known cases: `0` as "no expiry" (Dai `permit`: `expiry == 0 || now <= expiry`), the zero address as "the sender" or as native currency, `type(uint256).max` or `2**255` as "unlimited", `-1` slices, a zero recipient meaning `msg.sender`. Check `ifNotIn`, `threshold`, `senderAddress`, `nativeCurrencyAddress`, labels.
@@ -100,7 +111,8 @@ A finding is one block, worst first inside its section:
 
 - **Check:** <one of the fourteen check names above, as written>
 - **Where:** <the descriptor location, as a JSON path such as display.formats["swap(...)"].fields[2]>; <source file and lines>; <test case>, the last two when they apply
-- **Why:** <three to five sentences, in this order: what the code does, what the screen shows, how the two differ, and what that means for the signer, saying whether money can be lost>
+- **Why:** <three to five sentences, in this order: what the code does, what the screen shows, how the two differ>
+- **Outcome:** <one sentence: what the signer's assets or rights end up as, compared with what the screen states. For a critical, name the asset, allowance or right that differs; otherwise say that the outcome is as the screen implies and what is imprecise>
 - **Evidence:**
 
 ```solidity
@@ -115,6 +127,7 @@ Rules:
 
 - A fix that adds a field or makes one visible also says whether `interpolatedIntent` should mention it. `interpolatedIntent` may reference only fields that have a format and are always visible, and a sentence that leaves out an amount or a recipient it could name is misleading.
 - Report problems only. A note that something is acceptable, correct or as expected is not a finding; leave it out.
+- The Outcome line decides the severity, as the Severity section says. A critical whose Outcome line names no concrete asset, allowance or right that ends up other than stated is a warning or an info.
 - One finding per issue. No finding without evidence: quote the descriptor text and the code it rests on, both when both matter (the threshold in the descriptor and the comparison in the contract, say), with file and lines. A finding you cannot back with a quote is not a finding; a doubt you could not resolve goes under "What could not be reviewed".
 - No findings proves nothing: when an omitted file, a missing source or an unresolved proxy kept you from checking something, say so under "What could not be reviewed", and leave that section out when nothing did.
 - Do not repeat the deterministic checks. Do not pad. Keep the whole answer under 12,000 characters: fewer, better findings.
