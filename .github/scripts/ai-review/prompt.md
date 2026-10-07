@@ -118,15 +118,11 @@ After the method, answer these for the unit. The list names the mistakes we know
 </checks>
 
 <answer_format>
-Think first, then answer. Before the answer, write your working notes inside `<notes>` and `</notes>`: for each format key, the effects you found in the code, what the screen shows for each, and the severity you settle on with the rule that gives it. The notes are discarded before the answer is posted, so they can be terse; the answer must stand on its own. Decide the section of every finding in the notes, before you write its block: a block never says that it belongs in another section or that it is not a finding.
+Decide the section of every finding before you write its block, from its Effect and Screen lines: a block never says that it belongs in another section or that it is not a finding.
 
-After `</notes>`, answer in Markdown and nothing else: no HTML, no links, no `@` mentions, no text after the last section. Use exactly these sections, in this order; the first four are always present, the last one only when needed:
+Answer in Markdown and nothing else: no text before the first heading, none after the last section, no HTML, no links, no `@` mentions. Use exactly these sections, in this order; the first four are always present, the last one only when needed:
 
 ````
-<notes>
-<your working notes, discarded>
-</notes>
-
 # Review
 
 <One short paragraph: what the descriptor covers, what you compared it with, and the one issue that matters most, if any.>
