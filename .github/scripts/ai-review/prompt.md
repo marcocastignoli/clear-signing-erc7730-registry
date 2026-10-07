@@ -22,9 +22,13 @@ Deterministic checks ran before you and passed. Do not report, even if you notic
 
 - JSON schema validity, file names, the registry index.
 - Selectors, format keys and paths that do not exist in the ABI; display fields that do not match the ABI. The linter validated every display field against the ABI of every deployment.
-- Whether the deployments are verified on Sourcify and whether proxies resolve: they are and they do, or you would not be running.
+- Whether the deployments are verified on Sourcify and whether proxies resolve: that is checked before you. A contract with `match: null` and no source still happens; then review what the descriptor alone allows (constants and tokens against the chains of the deployments, hidden parameters, intents, enums, the interpolated intent, the tests) and list under "What could not be reviewed" what needed the source. Do not report the missing source as a finding.
 - Whether each test case passes on the runners and whether every function has a test case. Both are enforced. You judge whether the tests are *meaningful*, not whether they exist or pass.
 - Missing `interpolatedIntent`: a separate advisory comment already lists it.
+- A missing test file or an empty case list: the tests are enforced elsewhere. Judge the cases you are given, say nothing when there are none.
+- `unit.deployments` being fewer than `context.contract.deployments`: a unit covers the deployments that run the same code, the others are reviewed separately.
+- `context.contract.abi` being present: the schema allows it.
+- The `amount` format showing the native currency of the transaction's chain (ETH on Ethereum, CELO on Celo, SGB on Songbird): that is what it is for.
 
 ## Severity
 
@@ -34,7 +38,7 @@ Severity is about the outcome for the signer, not about how wrong the wording is
 2. **Is a displayed value wrong, missing or misleading in a way a descriptor change fixes, while the outcome is as the screen implies?** Then `warning`: a wrong label, a raw value where a format exists, a wrong unit or date encoding, a goal named instead of the step when that could make the signer skip a step or expect funds this call does not deliver, a test that does not exercise what it claims.
 3. **Everything else is `info`**: a value no descriptor can show, a suggestion, a doubt you could not resolve from the source.
 
-A `critical` must name the difference in the Outcome line of the finding: which asset, allowance or right ends up other than stated. If you cannot write that sentence with a concrete asset or right, the finding is not critical. In doubt between `warning` and `info`, choose `info`: a `warning` with a fix makes the author change the descriptor, so give it only when the change is clearly right.
+A `critical` must name the difference in the Outcome line of the finding: which asset, allowance or right ends up other than stated. If you cannot write that sentence with a concrete asset or right, the finding is not critical. The reverse holds too: write "the outcome is as the screen implies" only when no token, amount, recipient, allowance or right differs from the screen. A different asset or right is enough for a critical; nobody has to lose money. In doubt between `warning` and `info`, choose `info`: a `warning` with a fix makes the author change the descriptor, so give it only when the change is clearly right.
 
 Common cases and their severity:
 
@@ -45,6 +49,10 @@ Common cases and their severity:
 | A calldata recipient, spender or callee hidden or shown as another field | critical | who gets the assets or the allowance differs |
 | An enum or map label that names another value than the code switches on | critical | the action stated is not the action executed |
 | An EIP-712 domain or type that the verifying contract does not use | critical | the signature is valid for something other than the screen |
+| Native currency shown where the code moves the wrapped token, or the reverse | critical | the asset differs, even when the value is the same |
+| A side effect that revokes or replaces an existing delegation, approval or ownership, not stated on the screen | critical | a right of the signer changes |
+| A payable function with no `@.value` field | critical | native currency leaves the wallet in an amount the screen never states |
+| An `interpolatedIntent` that omits a field shown elsewhere on the screen | warning | the value is on the screen, the sentence is incomplete |
 | A value in storage, not in the calldata: a treasury or beneficiary address, an owner, a fee rate, a price | info | no descriptor can show it; a payment to the contract's treasury is what a purchase screen implies |
 | An intent that names the goal of a multi-step flow ("Migrate", "Purchase") instead of the step this call performs ("Initiate migration") | warning or info | the signer's assets end up as implied; warning only when the wording could make them skip a step or expect funds this call does not deliver |
 | An allowance consumed by `transferFrom`, a nonce, or another bookkeeping value the signer does not choose | not a finding | it changes nothing about who gets what |
