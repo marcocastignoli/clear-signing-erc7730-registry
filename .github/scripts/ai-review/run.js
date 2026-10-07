@@ -204,6 +204,16 @@ function cost(usage) {
 // The answer: Markdown with the sections the prompt fixes, in that order
 // ---------------------------------------------------------------------------
 
+/**
+ * The prompt lets the model think first inside <notes>…</notes>, before the
+ * "# Review" heading. The notes are kept in the record and never posted.
+ */
+function splitNotes(text) {
+  const m = String(text ?? '').match(/^\s*<notes>([\s\S]*?)<\/notes>\s*/i);
+  if (!m) return { notes: null, answer: String(text ?? '') };
+  return { notes: m[1].trim(), answer: String(text).slice(m[0].length) };
+}
+
 function checkAnswer(text) {
   const problems = [];
   if (!/^\s*# Review\b/.test(text)) problems.push('does not start with the "# Review" heading');
@@ -234,14 +244,16 @@ async function askModel(client, input) {
     result.costUSD = cost(reply.usage);
     result.responseId = reply.id ?? null;
     result.stop = reply.stop;
-    result.answer = reply.text || null;
+    const { notes, answer } = splitNotes(reply.text);
+    result.notes = notes;
+    result.answer = answer || null;
     if (result.answer) result.counts = countFindings(result.answer);
     if (reply.stop === 'refusal') {
       result.error = `the model refused: ${reply.refusal}`;
     } else if (reply.stop !== 'end') {
       result.error = `the answer is incomplete (${reply.stop})`;
     } else {
-      result.problems = checkAnswer(reply.text);
+      result.problems = checkAnswer(result.answer ?? "");
       result.ok = result.problems.length === 0;
       if (!result.ok) result.error = `the answer does not follow the format: ${result.problems.join('; ')}`;
     }
