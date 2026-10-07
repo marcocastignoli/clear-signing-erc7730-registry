@@ -66,37 +66,42 @@ In doubt between warning and info, choose info: a warning with a fix makes the a
 </severity>
 
 <examples>
-Calibrated decisions, in pairs. The first column is the Effect and the Screen, the second the severity, the third the reason. Use them as the scale, not as a list to match.
+Calibrated criticals. Every one of them has an effect on the signer's assets, allowances, positions or rights that is absent from the screen or stated differently; that is the scale, not a list to match.
 
-| Effect against screen | Severity | Why |
-|---|---|---|
-| The recipient receives the amount minus a fee, tax or burn; the screen shows the full amount as sent | critical | the amount that arrives differs from the amount stated |
-| The code moves the wrapped token; the screen shows native currency, or the reverse | critical | another asset, even at one to one |
-| The function delegates to the listed providers after revoking every existing delegation; the intent reads like the additive one | critical | positions the signer holds are revoked and the screen does not say so |
-| Bonding to a new delegate folds the signer's whole existing stake into it; the screen shows only the new amount | critical | a position moves that the screen does not mention |
-| A payable swap or batch has no `@.value` field | critical | native currency leaves the wallet in an amount the screen never states |
-| The amount spent or the minimum received of a swap is not displayed, while sibling formats display them, or a partial fill has no bound at all | critical | how much leaves, or how little may come back, is not on the screen |
-| The inner calls of a router that decide the output token and the recipient are `visible: never` | critical | who receives what is decided by data the signer cannot see |
-| Embedded calldata is decoded as a call to `to` while `operation` can make it a delegate call that runs `to`'s code in the signer's account | critical | the nested screen states an outcome that does not occur, and code runs with the account's balances |
-| An amount field uses a `token` constant that is the mainnet address of a token, on deployments on other chains | critical | the wallet resolves the constant on the transaction's chain, so the asset shown is wrong there |
-| An enum or map label names another value than the one the code switches on | critical | the action stated is not the action executed |
-| An EIP-712 domain or type that the verifying contract does not use | critical | the signature is valid for something other than the screen |
-| A minimum received is displayed as a raw integer without its token | warning | the value is on the screen, unreadable |
-| Providers and shares, or targets and actions, are shown as two separate lists | warning | the pairing is lost, the outcome is as stated |
-| An intent says "Migrate" or "Purchase" when this call only initiates or records, and the asset is delivered by a later step | warning | the signer could expect funds this call does not deliver; nothing of theirs ends up elsewhere |
-| A `threshold` for "unlimited" that is not the exact value the code treats specially | warning | imprecise display, the allowance is as shown |
-| A special value shown literally, `0` where the code applies "no cap", "now" or "revoke", the zero address where it means the sender | warning | the value on the screen is the value sent; its meaning is missing, and a `threshold`, a `message` or a label can add it |
-| The amount sits inside a `bytes32` or a packed word that is displayed raw | warning, or info when no slice can extract it | on the screen, unreadable |
-| An enum keyed `"True"`/`"False"` for a `bool`, or another key the wallet may not look up | warning | the lookup may fail; what happens then is a possibility, not an effect |
-| A side effect that is the prerequisite of the stated action: enabling the module whose roles are being assigned, wrapping before a bridge the screen names | info | the signer asked for the action; the step belongs to it |
-| "Assets: 0 <token>" is shown when the call is denominated in shares, and the shares are shown too | warning | both values are on the screen, the zero misleads |
-| A field is `visible: optional`, a recipient defaults to the signer, the signer's own account is the `sender` | warning at most | not hidden; a descriptor change may improve the screen |
-| The payment goes to a `treasury` held in storage; the screen shows the full payment and the token | info | no descriptor can show a storage address; the purchase screen implies the treasury |
-| A hash in a signed message stands for the payer, the receiver or the token, and no field carries them | info, as spec-limitation | the descriptor cannot decode a hash; say what it hides |
-| A guard or registry checks hidden `bytes`; the data of a call that moves none of the signer's assets is hidden | info | nothing of the signer's changes hands |
-| A parameter can only be shown as packed bits, pool ids or flags, and does not change who gets what | info, as spec-limitation | if it does change who gets what, say so with the pattern you saw |
-| A missing test file, an empty case list, the deployment subset of the unit, a runner that renders differently from the expected screen | not a finding | owned by the deterministic checks |
+| Effect against screen | Why critical |
+|---|---|
+| The recipient receives the amount minus a fee, tax or burn; the screen shows the full amount as sent | the amount that arrives differs from the amount stated |
+| The code moves the wrapped token; the screen shows native currency, or the reverse | another asset, even at one to one |
+| The function delegates to the listed providers after revoking every existing delegation; the intent reads like the additive one | positions the signer holds are revoked and the screen does not say so |
+| Bonding to a new delegate folds the signer's whole existing stake into it; the screen shows only the new amount | a position moves that the screen does not mention |
+| A payable swap or batch has no `@.value` field | native currency leaves the wallet in an amount the screen never states |
+| The amount spent or the minimum received of a swap has no field at all, while sibling formats display them, or a partial fill has no bound anywhere | how much leaves, or how little may come back, is not on the screen |
+| The inner calls of a router that decide the output token and the recipient are `visible: never` and nothing else states them | who receives what is decided by data the signer cannot see |
+| Embedded calldata is decoded as a call to `to` while `operation` can make it a delegate call that runs `to`'s code in the signer's account | the nested screen states an outcome that does not occur, and code runs with the account's balances |
+| An amount field uses a `token` constant that is the mainnet address of a token, on deployments on other chains | the wallet resolves the constant on the transaction's chain, so the asset shown is wrong there |
+| An enum or map label names another value than the one the code switches on | the action stated is not the action executed |
+| An EIP-712 domain or type that the verifying contract does not use | the signature is valid for something other than the screen |
 </examples>
+
+<not_critical>
+Common cases that are never critical, with the severity they get instead. Check every candidate critical against this list before you place it; most wrong criticals are one of these.
+
+1. **A value that is on the screen but unreadable**: a raw integer without token, unit or decimals, a minimum received without its token, a rate or a fraction shown raw, an amount or a limit inside a `bytes32` or a packed word displayed raw. It is on the screen; warning, or info when no slice or format can extract it.
+2. **A value that is on the screen through another field**: an amount whose token comes from `tokenPath`, even when the token parameter itself is not a field; a recipient shown as its own field while the sentence omits it; a `value` field next to a nested call. Not hidden; a warning when the sentence or the layout could be better.
+3. **A party or a value the contract reads from storage or derives itself**: the treasury, the owner, the fee rate, a price, the payer of a refund, the recipient of a withdrawal that is always the account owner. No descriptor can show it; info, as spec-limitation. The exception is the amount rule: when the storage value cuts the amount shown, the finding is about the amount, and that one is critical.
+4. **A recipient or payer that is the signer**: a recipient that defaults to `msg.sender` when absent, the signer's own account as `sender`, funds that return to the caller. Not a different recipient; not a finding, or a warning when a field would help.
+5. **Hidden bytes that move none of the signer's assets**: `data` a guard or a registry checks, callback data, `execLayerData`, a report, a payload consumed by the destination application, an unresolved nested call whose amount and recipient are shown elsewhere. Info.
+6. **A field with `visible: optional`, or an optional configuration**: a pool config, a price limit, a flag the wallet may show. Not hidden; warning at most.
+7. **A special value shown literally**: `0` where the code applies "no cap", "now", "revoke" or "the whole balance", the zero address where it means the sender or native currency, a maximum shown as a number. The value on the screen is the value sent; its meaning is missing. Warning, with a `threshold`, a `message` or a label as the fix.
+8. **Labels and wording**: a label that says "ETH" for an `amount` on another chain while the value renders in that chain's currency, an enum keyed `"True"`/`"False"` for a `bool`, two keys with the same label, an intent that names the goal of a multi-step flow instead of this step, an `interpolatedIntent` that omits a field shown elsewhere, address `types` narrower than the code allows. The outcome is as stated; warning.
+9. **A hash or an id that stands for terms the message does not carry**: an order hash, a channel id, a market id, a pool id. The descriptor cannot decode it; info, as spec-limitation, saying what it hides.
+10. **A side effect that is the prerequisite of the stated action**: enabling the module whose roles are being assigned, wrapping before the bridge the screen names, approving the router the screen names for the swap it performs. The signer asked for the action; info.
+11. **The scope or the detail of a grant whose grantee and nature are on the screen**: the permission list inside a delegation whose delegate and audience are shown, the conditions of a role whose target and function are shown. Warning: the right is stated, its extent is not.
+12. **Possibilities**: what a wallet might do with an optional field, what some other input could do, a nested descriptor that might not resolve, a lookup that may fail. "Could", "may" and "can" belong to warnings; a critical states what the transaction does.
+13. **Owned by the deterministic checks**: a missing test file, an empty case list, a runner that renders differently from the expected screen, the unit's deployments being fewer than the descriptor's, an unverified contract, `context.contract.abi`. Not a finding.
+
+When a candidate critical matches one of these, place it at the severity given here and say so in its Gap line. When it matches none and its Effect is absent from the screen or stated differently, it is critical.
+</not_critical>
 
 <checks>
 After the method, answer these for the unit. The list names the mistakes we know; it is not complete. Anything else that makes the screen say something other than what the code does, or that a careful auditor would raise, is a finding too: report it under `other`.
@@ -178,7 +183,7 @@ Rules:
 Read your findings once more and apply these, in order:
 
 1. For each function you reviewed, go back to the effects you listed in step 1 of the method: a transfer, an approval, a delegation, a stake move, a revocation, a module or role change, a delegate call, native value sent. Does each one have a line on the screen that states it as the code does it? Any that does not is a critical you may have missed.
-2. For each critical, read its Screen line. If the value is on the screen, only raw or unlabelled, the finding is a warning. If the effect is hidden `bytes` that a guard checks, or data of a call that moves nothing of the signer's, it is an info. If the Gap says "could", "may" or "can", it is a warning.
+2. For each critical, read its Screen line and walk the thirteen cases of the not-critical list. If it matches one, move it to the severity given there. If the value is on the screen at all, raw, unlabelled or through another field, it is not critical.
 3. Delete any finding about a missing test file or an empty case list, about `unit.deployments` being fewer than the descriptor's, about `context.contract.abi`, about a runner rendering differently from the expected screen, or about the source being unverified.
 4. Check every constant address, ticker or token in the descriptor against every chain of `unit.deployments`: a mainnet token address used on another chain is a critical even without source.
 5. Delete any finding whose Gap says nothing differs and that has no Fix, and any block that says it is not a finding or belongs in another section: move it or drop it.
