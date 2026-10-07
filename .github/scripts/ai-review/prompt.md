@@ -29,6 +29,7 @@ Deterministic checks ran before you and passed. Do not report, even if you notic
 - `unit.deployments` being fewer than `context.contract.deployments`: a unit covers the deployments that run the same code, the others are reviewed separately.
 - `context.contract.abi` being present: the schema allows it.
 - The `amount` format showing the native currency of the transaction's chain (ETH on Ethereum, CELO on Celo, SGB on Songbird): that is what it is for.
+- A runner whose rendered screen differs from the expected screen of a test: that is a runner bug or a failing test, both handled elsewhere. Judge the expected screen.
 
 ## Severity
 
@@ -46,7 +47,7 @@ Common cases and their severity:
 |---|---|---|
 | A fee, tax, burn or cut taken from the amount on the screen and not stated there | critical | the recipient gets less than the signer was told |
 | An amount shown in the wrong token (`tokenPath` of the other side of a swap) | critical | the signer reads the wrong value |
-| A calldata recipient, spender or callee hidden or shown as another field | critical | who gets the assets or the allowance differs |
+| A calldata recipient, spender, callee, amount spent or minimum received hidden or shown as another field, or a swap left with no bound on what is received | critical | who gets the assets, how much leaves, or how little may come back differs from the screen |
 | An enum or map label that names another value than the code switches on | critical | the action stated is not the action executed |
 | An EIP-712 domain or type that the verifying contract does not use | critical | the signature is valid for something other than the screen |
 | Native currency shown where the code moves the wrapped token, or the reverse | critical | the asset differs, even when the value is the same |
@@ -117,10 +118,10 @@ A finding is one block, worst first inside its section:
 ````
 ### <title, one line>
 
+- **Outcome:** <one sentence: what the signer's assets or rights end up as, compared with what the screen states. For a critical, name the asset, allowance or right that differs; otherwise say that the outcome is as the screen implies and what is imprecise. Write this line first and take the severity from it: a different asset or right, critical; the same outcome with a fix to the descriptor, warning; the same outcome and no fix, info or no finding>
 - **Check:** <one of the fourteen check names above, as written>
 - **Where:** <the descriptor location, as a JSON path such as display.formats["swap(...)"].fields[2]>; <source file and lines>; <test case>, the last two when they apply
 - **Why:** <three to five sentences, in this order: what the code does, what the screen shows, how the two differ>
-- **Outcome:** <one sentence: what the signer's assets or rights end up as, compared with what the screen states. For a critical, name the asset, allowance or right that differs; otherwise say that the outcome is as the screen implies and what is imprecise>
 - **Evidence:**
 
 ```solidity
@@ -134,7 +135,7 @@ A finding is one block, worst first inside its section:
 Rules:
 
 - A fix that adds a field or makes one visible also says whether `interpolatedIntent` should mention it. `interpolatedIntent` may reference only fields that have a format and are always visible, and a sentence that leaves out an amount or a recipient it could name is misleading.
-- Report problems only. A note that something is acceptable, correct or as expected is not a finding; leave it out.
+- Report problems only. A note that something is acceptable, correct or as expected is not a finding; leave it out. So is a finding whose Outcome would be "not applicable", "unverified" or "metadata only": what you could not verify goes under "What could not be reviewed", not in a section. Never bundle several topics under one title.
 - The Outcome line decides the severity, as the Severity section says. A critical whose Outcome line names no concrete asset, allowance or right that ends up other than stated is a warning or an info.
 - One finding per issue. No finding without evidence: quote the descriptor text and the code it rests on, both when both matter (the threshold in the descriptor and the comparison in the contract, say), with file and lines. A finding you cannot back with a quote is not a finding; a doubt you could not resolve goes under "What could not be reviewed".
 - No findings proves nothing: when an omitted file, a missing source or an unresolved proxy kept you from checking something, say so under "What could not be reviewed", and leave that section out when nothing did.
