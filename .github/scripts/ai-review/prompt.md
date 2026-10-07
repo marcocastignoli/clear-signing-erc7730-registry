@@ -85,9 +85,14 @@ Calibrated decisions, in pairs. The first column is the Effect and the Screen, t
 | Providers and shares, or targets and actions, are shown as two separate lists | warning | the pairing is lost, the outcome is as stated |
 | An intent says "Migrate" or "Purchase" when this call only initiates or records, and the asset is delivered by a later step | warning | the signer could expect funds this call does not deliver; nothing of theirs ends up elsewhere |
 | A `threshold` for "unlimited" that is not the exact value the code treats specially | warning | imprecise display, the allowance is as shown |
+| A special value shown literally, `0` where the code applies "no cap", "now" or "revoke", the zero address where it means the sender | warning | the value on the screen is the value sent; its meaning is missing, and a `threshold`, a `message` or a label can add it |
+| The amount sits inside a `bytes32` or a packed word that is displayed raw | warning, or info when no slice can extract it | on the screen, unreadable |
+| An enum keyed `"True"`/`"False"` for a `bool`, or another key the wallet may not look up | warning | the lookup may fail; what happens then is a possibility, not an effect |
+| A side effect that is the prerequisite of the stated action: enabling the module whose roles are being assigned, wrapping before a bridge the screen names | info | the signer asked for the action; the step belongs to it |
 | "Assets: 0 <token>" is shown when the call is denominated in shares, and the shares are shown too | warning | both values are on the screen, the zero misleads |
 | A field is `visible: optional`, a recipient defaults to the signer, the signer's own account is the `sender` | warning at most | not hidden; a descriptor change may improve the screen |
 | The payment goes to a `treasury` held in storage; the screen shows the full payment and the token | info | no descriptor can show a storage address; the purchase screen implies the treasury |
+| A hash in a signed message stands for the payer, the receiver or the token, and no field carries them | info, as spec-limitation | the descriptor cannot decode a hash; say what it hides |
 | A guard or registry checks hidden `bytes`; the data of a call that moves none of the signer's assets is hidden | info | nothing of the signer's changes hands |
 | A parameter can only be shown as packed bits, pool ids or flags, and does not change who gets what | info, as spec-limitation | if it does change who gets what, say so with the pattern you saw |
 | A missing test file, an empty case list, the deployment subset of the unit, a runner that renders differently from the expected screen | not a finding | owned by the deterministic checks |
@@ -113,9 +118,15 @@ After the method, answer these for the unit. The list names the mistakes we know
 </checks>
 
 <answer_format>
-Answer in Markdown and nothing else: no text before the first heading, none after the last section, no HTML, no links, no `@` mentions. Use exactly these sections, in this order; the first four are always present, the last one only when needed:
+Think first, then answer. Before the answer, write your working notes inside `<notes>` and `</notes>`: for each format key, the effects you found in the code, what the screen shows for each, and the severity you settle on with the rule that gives it. The notes are discarded before the answer is posted, so they can be terse; the answer must stand on its own. Decide the section of every finding in the notes, before you write its block: a block never says that it belongs in another section or that it is not a finding.
+
+After `</notes>`, answer in Markdown and nothing else: no HTML, no links, no `@` mentions, no text after the last section. Use exactly these sections, in this order; the first four are always present, the last one only when needed:
 
 ````
+<notes>
+<your working notes, discarded>
+</notes>
+
 # Review
 
 <One short paragraph: what the descriptor covers, what you compared it with, and the one issue that matters most, if any.>
@@ -161,7 +172,7 @@ Rules:
 
 - The Effect and Screen lines decide the severity, by the three rules. Write them first, then place the finding in its section. A critical whose Screen line is not "nothing" and not a different value is a warning or an info.
 - One finding per issue, never several topics under one title. No finding without evidence: quote the descriptor text and the code it rests on, with file and lines; a finding you cannot back with a quote is not a finding, a doubt you could not resolve goes under "What could not be reviewed".
-- Report problems only. A note that something is acceptable, a finding whose Gap would be "none", "not applicable" or "unverified", a remark about metadata being thin, is not a finding.
+- Report problems only. A note that something is acceptable, a finding whose Gap would be "none", "not applicable" or "unverified", a remark about metadata being thin, is not a finding. If while writing a block you find it is not critical, or not a finding, do not finish it there: write it in its section, or drop it.
 - No findings proves nothing: when an omitted file, a missing source or an unresolved proxy kept you from checking something, say so under "What could not be reviewed", and leave that section out when nothing did.
 - Do not repeat the deterministic checks. Do not pad. Keep the whole answer under 12,000 characters: fewer, better findings.
 - A unit with nothing wrong gets `None.` in the three sections.
@@ -174,5 +185,5 @@ Read your findings once more and apply these, in order:
 2. For each critical, read its Screen line. If the value is on the screen, only raw or unlabelled, the finding is a warning. If the effect is hidden `bytes` that a guard checks, or data of a call that moves nothing of the signer's, it is an info. If the Gap says "could", "may" or "can", it is a warning.
 3. Delete any finding about a missing test file or an empty case list, about `unit.deployments` being fewer than the descriptor's, about `context.contract.abi`, about a runner rendering differently from the expected screen, or about the source being unverified.
 4. Check every constant address, ticker or token in the descriptor against every chain of `unit.deployments`: a mainnet token address used on another chain is a critical even without source.
-5. Delete any finding whose Gap says nothing differs and that has no Fix.
+5. Delete any finding whose Gap says nothing differs and that has no Fix, and any block that says it is not a finding or belongs in another section: move it or drop it.
 </before_answering>
