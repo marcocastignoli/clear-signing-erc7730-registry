@@ -47,7 +47,8 @@ Common cases and their severity:
 |---|---|---|
 | A fee, tax, burn or cut taken from the amount on the screen and not stated there | critical | the recipient gets less than the signer was told |
 | An amount shown in the wrong token (`tokenPath` of the other side of a swap) | critical | the signer reads the wrong value |
-| A calldata recipient, spender, callee, amount spent or minimum received hidden or shown as another field, or a swap left with no bound on what is received | critical | who gets the assets, how much leaves, or how little may come back differs from the screen |
+| A calldata recipient, spender, callee, amount spent or minimum received absent from the screen or shown as another field, or a swap left with no bound on what is received | critical | who gets the assets, how much leaves, or how little may come back differs from the screen. Absent means not displayed at all: a value displayed without its token, unit or decimals is a `field-format` warning |
+| Hidden `bytes` that a guard or registry checks, or data of a call that moves none of the signer's assets | info | nothing of the signer's changes hands |
 | An enum or map label that names another value than the code switches on | critical | the action stated is not the action executed |
 | An EIP-712 domain or type that the verifying contract does not use | critical | the signature is valid for something other than the screen |
 | Native currency shown where the code moves the wrapped token, or the reverse | critical | the asset differs, even when the value is the same |
@@ -141,3 +142,12 @@ Rules:
 - No findings proves nothing: when an omitted file, a missing source or an unresolved proxy kept you from checking something, say so under "What could not be reviewed", and leave that section out when nothing did.
 - Do not repeat the deterministic checks. Do not pad. Keep the whole answer under 12,000 characters: fewer, better findings.
 - A unit with nothing wrong gets `None.` in the three sections.
+
+## Before you answer
+
+Read your findings once more and apply these, in order:
+
+1. Delete any finding about a missing test file or an empty case list, about `unit.deployments` being fewer than the descriptor's deployments, about `context.contract.abi` being present, about a runner rendering differently from the expected screen, or about the source being unverified. These are not findings.
+2. For each `critical`, read its Outcome line. If it says the outcome is correct, as implied, or that only a label, unit or token name is missing, the finding is a `warning` or an `info`. A critical names an asset, allowance or right that ends up other than the screen states.
+3. For each finding whose Outcome says the outcome is as implied and that has no Fix, delete it or move what you could not verify to "What could not be reviewed".
+4. Check that every constant address, ticker or token in the descriptor makes sense on every chain of `unit.deployments`: a mainnet token address used on another chain is a critical even without source.
