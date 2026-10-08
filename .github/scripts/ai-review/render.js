@@ -7,10 +7,12 @@
  *
  * <answers> holds one folder per model, as run.js writes them.
  *
- * The comment opens with the counts of findings per descriptor, then has one
- * card per finding: its title with the severity, the Effect, Screen, Gap and
- * Fix lines, and the check, the location and the evidence folded under them.
- * An answer that does not parse into that shape is shown as it came, folded.
+ * The comment opens with the counts of findings per descriptor. Each
+ * descriptor then has the model's summary in view and its findings folded
+ * under one toggle: a card per finding with its title and severity, the
+ * Effect, Screen, Gap and Fix lines, the check and the location, and the
+ * evidence. An answer that does not parse into that shape is shown as it
+ * came, folded.
  *
  * Every answer was written by a model from data that came from the pull
  * request, so it is untrusted: the Markdown is kept, but HTML is escaped,
@@ -34,7 +36,8 @@ const MAX_ANSWER = 16_000;
 const ICONS = { critical: '🔴', warning: '🟠', info: '🔵' };
 const LABELS = { critical: 'Critical', warning: 'Warning', info: 'Info' };
 // The lines of a finding as bullets, in this order, then Fix; Check and Where
-// become the locator line and Evidence the code block.
+// The lines of a finding as bullets, in this order, then Fix; Check and Where
+// make the locator line and Evidence the code block.
 const VISIBLE = ['Effect', 'Screen', 'Gap', 'Why', 'Outcome'];
 const FOLDED = ['Check', 'Where', 'Evidence'];
 
