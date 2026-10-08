@@ -7,10 +7,12 @@
  *
  * <answers> holds one folder per model, as run.js writes them.
  *
- * The comment opens with the counts of findings per descriptor, then has one
- * card per finding: its title with the severity, the Effect, Screen, Gap and
- * Fix lines, and the check, the location and the evidence folded under them.
- * An answer that does not parse into that shape is shown as it came, folded.
+ * The comment opens with the counts of findings per descriptor. Each
+ * descriptor then has the model's summary in view and its findings folded
+ * under one toggle: a card per finding with its title and severity, the
+ * Effect, Screen, Gap and Fix lines, the check and the location, and the
+ * evidence. An answer that does not parse into that shape is shown as it
+ * came, folded.
  *
  * Every answer was written by a model from data that came from the pull
  * request, so it is untrusted: the Markdown is kept, but HTML is escaped,
@@ -33,9 +35,12 @@ const MAX_BODY = 60_000;
 const MAX_ANSWER = 16_000;
 const ICONS = { critical: '🔴', warning: '🟠', info: '🔵' };
 const LABELS = { critical: 'Critical', warning: 'Warning', info: 'Info' };
-// The lines of a finding that stay in view, in this order; the rest is folded.
+// The lines of a finding as bullets, in this order, then Fix; Check and Where
+// The lines of a finding as bullets, in this order, then Fix; Check and Where
+// make the locator line and Evidence the code block.
 const VISIBLE = ['Effect', 'Screen', 'Gap', 'Why', 'Outcome'];
 const FOLDED = ['Check', 'Where', 'Evidence'];
+
 
 const { values: opts } = parseArgs({
   options: {
@@ -177,41 +182,45 @@ function renderItem(item, { heading = false } = {}) {
   return `${head}\n${rest.split('\n').map((l) => (l.trim() ? `  ${l}` : l)).join('\n')}`;
 }
 
-/** One finding: its title with the severity, the visible lines, the rest folded. */
+/** One finding: its title with the severity, the Effect, Screen, Gap and Fix lines, the check and the location, then the evidence. */
 function renderFinding(severity, finding) {
   const items = finding.items;
   const byKey = (k) => items.filter((i) => i.key.toLowerCase() === k.toLowerCase());
   const known = (k) => [...VISIBLE, ...FOLDED, 'Fix'].some((n) => n.toLowerCase() === k.toLowerCase());
-  const visible = [...VISIBLE.flatMap(byKey), ...items.filter((i) => !known(i.key)), ...byKey('Fix')];
-  const folded = ['Where', 'Evidence'].flatMap(byKey);
-  const check = byKey('Check').map((i) => line(i.text, 60)).filter(Boolean)[0];
+  const bullets = [...VISIBLE.flatMap(byKey), ...items.filter((i) => !known(i.key)), ...byKey('Fix')];
+  const locator = ['Check', 'Where'].flatMap(byKey).map((i) => `${line(i.key, 40)}: ${prose(i.text)}`).filter(Boolean);
 
   let out = `#### ${ICONS[severity]} ${LABELS[severity]}: ${line(finding.title, 300)}\n\n`;
   const preamble = render(finding.preamble);
   if (preamble) out += `${preamble}\n\n`;
-  if (visible.length > 0) out += `${visible.map((i) => renderItem(i)).join('\n')}\n\n`;
-  if (folded.length > 0) {
-    out += `<details>\n<summary>Evidence${check ? ` · ${check}` : ''}</summary>\n\n`;
-    out += `${folded.map((i) => renderItem(i, { heading: true })).join('\n\n')}\n\n</details>\n\n`;
-  } else if (check) {
-    out += `<sub>Check: ${check}</sub>\n\n`;
-  }
+  if (bullets.length > 0) out += `${bullets.map((i) => renderItem(i)).join('\n')}\n\n`;
+  if (locator.length > 0) out += `<sub>${locator.join(' · ')}</sub>\n\n`;
+  const evidence = byKey('Evidence').map((i) => renderItem(i, { heading: true })).join('\n\n');
+  if (evidence) out += `${evidence}\n\n`;
   return out;
 }
 
-/** The findings of an answer as cards, worst first, with the summary above and the limits below. */
+/**
+ * The findings of an answer, worst first, folded under one toggle, with the
+ * limits of the review at the end of it. The summary stays in view above.
+ * GitHub renders Markdown inside <details> only with a blank line after
+ * <summary> and before </details>, and the block is never "open".
+ */
 function renderAnswer(answer) {
   let out = '';
   const summary = render(answer.summary);
   if (summary) out += `${summary.split('\n').map((l) => `> ${l}`).join('\n')}\n\n`;
+  let cards = '';
+  let count = 0;
   for (const severity of ['critical', 'warning', 'info']) {
-    for (const finding of answer.findings[severity]) out += renderFinding(severity, finding);
+    for (const finding of answer.findings[severity]) { cards += renderFinding(severity, finding); count++; }
     const loose = render(answer.loose[severity]);
-    if (loose && !/^none\.?$/i.test(loose.trim())) out += `${loose}\n\n`;
+    if (loose && !/^none\.?$/i.test(loose.trim())) cards += `${loose}\n\n`;
   }
   const limits = render(answer.limits);
-  if (limits) out += `<details>\n<summary>What could not be reviewed</summary>\n\n${limits}\n\n</details>\n\n`;
-  if (answer.cut) out += `${CUT_NOTE}\n\n`;
+  if (limits) cards += `#### What could not be reviewed\n\n${limits}\n\n`;
+  if (answer.cut) cards += `${CUT_NOTE}\n\n`;
+  if (cards) out += `<details>\n<summary>${count > 0 ? `The ${count === 1 ? 'finding' : `${count} findings`}` : 'The review'}</summary>\n\n${cards}</details>\n\n`;
   return out;
 }
 
