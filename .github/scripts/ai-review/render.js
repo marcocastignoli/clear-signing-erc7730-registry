@@ -36,7 +36,6 @@ const MAX_ANSWER = 16_000;
 const ICONS = { critical: '🔴', warning: '🟠', info: '🔵' };
 const LABELS = { critical: 'Critical', warning: 'Warning', info: 'Info' };
 // The lines of a finding as bullets, in this order, then Fix; Check and Where
-// The lines of a finding as bullets, in this order, then Fix; Check and Where
 // make the locator line and Evidence the code block.
 const VISIBLE = ['Effect', 'Screen', 'Gap', 'Why', 'Outcome'];
 const FOLDED = ['Check', 'Where', 'Evidence'];
