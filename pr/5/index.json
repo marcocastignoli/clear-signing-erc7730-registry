@@ -1,8 +1,37 @@
 {
   "indexVersion": 1,
   "pr": 5,
-  "updatedAt": "2026-10-08T05:33:56.360Z",
+  "updatedAt": "2026-10-08T09:35:45.471Z",
   "runs": [
+    {
+      "runId": 37757586015,
+      "runUrl": "https://github.com/marcocastignoli/clear-signing-erc7730-registry/actions/runs/37757586015",
+      "headSha": "4627c0c274c2c25e8ac95f1b7636b8a743ef7c67",
+      "startedAt": "2026-10-08T09:34:24Z",
+      "completedAt": "2026-10-08T09:35:27Z",
+      "generatedAt": "2026-10-08T09:35:44.740Z",
+      "schemaVersion": 1,
+      "summary": {
+        "descriptors": 1,
+        "missingTests": 0,
+        "cases": 1,
+        "byStatus": {
+          "rust-clear-signing": {
+            "pass": 1,
+            "fail": 0,
+            "error": 0,
+            "skipped": 0
+          },
+          "sourcify-ts-clear-signing": {
+            "pass": 1,
+            "fail": 0,
+            "error": 0,
+            "skipped": 0
+          }
+        },
+        "disagreements": 0
+      }
+    },
     {
       "runId": 37732896818,
       "runUrl": "https://github.com/marcocastignoli/clear-signing-erc7730-registry/actions/runs/37732896818",
