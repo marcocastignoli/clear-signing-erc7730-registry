@@ -9,7 +9,7 @@
  *
  * The comment opens with the counts of findings per descriptor. Each
  * descriptor then has the model's summary in view and its findings folded
- * under one toggle: a card per finding with its title and severity, the
+ * under one toggle per severity: a card per finding with its title, the
  * Effect, Screen, Gap and Fix lines, the check and the location, and the
  * evidence. An answer that does not parse into that shape is shown as it
  * came, folded.
@@ -200,27 +200,31 @@ function renderFinding(severity, finding) {
 }
 
 /**
- * The findings of an answer, worst first, folded under one toggle labelled
- * with their counts, with the limits of the review at the end of it. The
- * summary stays in view above.
- * GitHub renders Markdown inside <details> only with a blank line after
- * <summary> and before </details>, and the block is never "open".
+ * The findings of an answer: one toggle per severity, worst first, labelled
+ * with the count, and one for the limits of the review at the end. The
+ * summary stays in view above. GitHub renders Markdown inside <details>
+ * only with a blank line after <summary> and before </details>, and the
+ * blocks are never "open".
  */
-function renderAnswer(answer, counts) {
+const toggle = (label, inner) => `<details>\n<summary>${label}</summary>\n\n${inner}</details>\n\n`;
+
+function renderAnswer(answer) {
   let out = '';
   const summary = render(answer.summary);
   if (summary) out += `${summary.split('\n').map((l) => `> ${l}`).join('\n')}\n\n`;
-  let cards = '';
-  let count = 0;
   for (const severity of ['critical', 'warning', 'info']) {
-    for (const finding of answer.findings[severity]) { cards += renderFinding(severity, finding); count++; }
+    const findings = answer.findings[severity];
+    let cards = findings.map((finding) => renderFinding(severity, finding)).join('');
     const loose = render(answer.loose[severity]);
     if (loose && !/^none\.?$/i.test(loose.trim())) cards += `${loose}\n\n`;
+    if (!cards) continue;
+    const n = findings.length;
+    const label = n > 0 ? `${ICONS[severity]} ${n} ${severity === 'warning' && n > 1 ? 'warnings' : severity}` : `${ICONS[severity]} ${LABELS[severity]}`;
+    out += toggle(label, cards);
   }
   const limits = render(answer.limits);
-  if (limits) cards += `#### What could not be reviewed\n\n${limits}\n\n`;
-  if (answer.cut) cards += `${CUT_NOTE}\n\n`;
-  if (cards) out += `<details>\n<summary>${count > 0 ? counts : 'What could not be reviewed'}</summary>\n\n${cards}</details>\n\n`;
+  if (limits) out += toggle('What could not be reviewed', `${limits}\n\n`);
+  if (answer.cut) out += `${CUT_NOTE}\n\n`;
   return out;
 }
 
@@ -266,11 +270,11 @@ function whereLine(record) {
 }
 
 /** The body of one unit: the answer as cards, or the error, or the raw answer with a note. */
-function unitBody(record, counts) {
+function unitBody(record) {
   if (!record.answer) return `**The review did not run.** ${line(record.error, 400)}\n\n`;
   const answer = parseAnswer(record.answer);
   const parsed = record.ok && ['critical', 'warning', 'info'].some((s) => answer.findings[s].length > 0 || answer.loose[s].length > 0);
-  if (parsed) return renderAnswer(answer, counts);
+  if (parsed) return renderAnswer(answer);
   const why = record.ok ? 'The answer does not follow the expected format' : `The answer does not follow the expected format (${line(record.error, 300)})`;
   return `${why}; it is shown as it came.\n\n<details>\n<summary>The answer</summary>\n\n${renderRaw(record.answer)}\n</details>\n\n`;
 }
@@ -290,7 +294,7 @@ function renderComment(folder) {
       path: repoPath(record.descriptor?.path),
       group: of > 1 ? `group ${(Number(record.unit?.index) || 0) + 1} of ${of}` : null,
       counts,
-      body: unitBody(record, counts),
+      body: unitBody(record),
     };
   });
 
@@ -303,7 +307,7 @@ function renderComment(folder) {
   } else {
     body += `${units.map((u) => `- **${u.counts}** in \`${u.path}\`${u.group ? ` (${u.group})` : ''}`).join('\n')}\n\n`;
     for (const u of units) {
-      let section = `### ${u.counts} · \`${u.path}\`${u.group ? ` · ${u.group}` : ''}\n\n`;
+      let section = `### \`${u.path}\`${u.group ? ` · ${u.group}` : ''}\n\n`;
       section += `<sub>${u.group ? 'The deployments of this descriptor that run different code are reviewed separately. ' : ''}${whereLine(u.record)}.</sub>\n\n`;
       section += u.body;
       sections.push(section);
