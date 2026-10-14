@@ -1,0 +1,81 @@
+{
+  "$schema": "../../../specs/erc7730-tests-v2.schema.json",
+  "descriptor": "../calldata-SafeMoon.json",
+  "dataProvider": {
+    "tokens": {
+      "0x8076c74c5e3f5852037f31ff0093eeb8c8add8d3": {
+        "symbol": "SAFEMOON",
+        "decimals": 9,
+        "name": "SafeMoon"
+      }
+    },
+    "addressNames": {
+      "0xf14aa9ed0b6d90b7a49b782f6a9846bea8f0b333": "Receiver",
+      "0x10ed43c718714eb63d5aa57b78b54704e256024e": "PancakeSwap Router",
+      "0x80226fc0ee2b096224eeac085bb9a8cba1146f7d": "Sender"
+    }
+  },
+  "tests": [
+    {
+      "description": "SafeMoon transfer - send 500.25 SAFEMOON (chain 56)",
+      "rawTx": "0x02f86d3807843b9aca0084b2d05e008301d4c0948076c74c5e3f5852037f31ff0093eeb8c8add8d380b844a9059cbb000000000000000000000000f14aa9ed0b6d90b7a49b782f6a9846bea8f0b3330000000000000000000000000000000000000000000000000000007479393a80c0",
+      "expected": {
+        "intent": "Send",
+        "interpolatedIntent": "Send 500.25 SAFEMOON to Receiver",
+        "owner": "SafeMoon",
+        "fields": [
+          {
+            "label": "Recipient",
+            "value": "Receiver"
+          },
+          {
+            "label": "Amount to Send",
+            "value": "500.25 SAFEMOON"
+          }
+        ]
+      }
+    },
+    {
+      "description": "SafeMoon approve - unlimited allowance to PancakeSwap (chain 56)",
+      "rawTx": "0x02f86d3807843b9aca0084b2d05e008301d4c0948076c74c5e3f5852037f31ff0093eeb8c8add8d380b844095ea7b300000000000000000000000010ed43c718714eb63d5aa57b78b54704e256024effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc0",
+      "expected": {
+        "intent": "Approve",
+        "interpolatedIntent": "Allow PancakeSwap Router to spend Unlimited SAFEMOON",
+        "owner": "SafeMoon",
+        "fields": [
+          {
+            "label": "Spender",
+            "value": "PancakeSwap Router"
+          },
+          {
+            "label": "Amount to Approve",
+            "value": "Unlimited SAFEMOON"
+          }
+        ]
+      }
+    },
+    {
+      "description": "SafeMoon transferFrom - send 50.5 SAFEMOON on behalf of Sender (chain 56)",
+      "rawTx": "0x02f88d3807843b9aca0084b2d05e008301d4c0948076c74c5e3f5852037f31ff0093eeb8c8add8d380b86423b872dd00000000000000000000000080226fc0ee2b096224eeac085bb9a8cba1146f7d000000000000000000000000f14aa9ed0b6d90b7a49b782f6a9846bea8f0b3330000000000000000000000000000000000000000000000000000000bc208d900c0",
+      "expected": {
+        "intent": "Send from",
+        "interpolatedIntent": "Send 50.5 SAFEMOON from Sender to Receiver",
+        "owner": "SafeMoon",
+        "fields": [
+          {
+            "label": "From",
+            "value": "Sender"
+          },
+          {
+            "label": "Recipient",
+            "value": "Receiver"
+          },
+          {
+            "label": "Amount to Send",
+            "value": "50.5 SAFEMOON"
+          }
+        ]
+      }
+    }
+  ]
+}
