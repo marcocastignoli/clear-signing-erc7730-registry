@@ -26,8 +26,9 @@
  * checked for those sections here and rendered by render.js, which escapes it.
  *
  * Writes, under <out>/answers/<model>/, one <unit>.json per unit (the answer,
- * the token usage, the cost that Claude Code estimates at list price, the
- * weekly usage of the subscription), one <unit>.md with the answer alone, and
+ * the models that wrote it, the token usage, the cost that Claude Code
+ * estimates at list price, the weekly usage of the subscription), one
+ * <unit>.md with the answer alone, and
  * summary.json with the totals and the latest weekly usage. With
  * --weekly-budget-usd, the list-price value of the weekly limit, the totals
  * also estimate the share of the limit that the run used.
@@ -44,6 +45,7 @@ const { countFindings } = require('./findings');
 // The answer is asked to stay under 12,000 characters; thinking counts toward
 // the limit too.
 const MAX_OUTPUT_TOKENS = 64_000;
+const TIMEOUT_MINUTES = 20;
 const SECTIONS = ['## Critical', '## Warning', '## Info'];
 
 const { values: opts } = parseArgs({
@@ -129,14 +131,20 @@ function claude(ws, message) {
     const child = execFile('claude', args, {
       cwd: ws.dir,
       env: { ...env, CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(MAX_OUTPUT_TOKENS) },
-      timeout: 20 * 60 * 1000,
+      timeout: TIMEOUT_MINUTES * 60 * 1000,
       maxBuffer: 64 * 1024 * 1024,
     }, (error, stdout, stderr) => {
+      if (error?.killed) return reject(new Error(`Claude Code did not finish in ${TIMEOUT_MINUTES} minutes`));
       // On an API error Claude Code exits 1 and still prints its result.
       let events;
       try { events = stdout.split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l)); } catch (e) { return reject(e); }
       const result = events.findLast((e) => e.type === 'result');
       if (!result) return reject(new Error(stderr.trim() || error?.message || 'claude printed no result'));
+      // The model reads text from the pull request, so a tool stops the run.
+      const init = events.find((e) => e.type === 'system' && e.subtype === 'init');
+      if (!init || init.tools?.length || init.mcp_servers?.length) {
+        return reject(Object.assign(new Error('the init event of Claude Code is missing or lists tools or MCP servers'), { fatal: true }));
+      }
       resolve({ result, rateLimit: events.findLast((e) => e.type === 'rate_limit_event')?.rate_limit_info ?? null });
     });
     child.stdin.end(message);
@@ -144,10 +152,13 @@ function claude(ws, message) {
 }
 
 /**
- * Sends one unit. Returns { id, text, stop, usage, costUSD, weeklyUsage } or
- * throws; a 401 stops the run, anything else is recorded for the unit.
+ * Sends one unit. Returns { id, text, stop, usage, costUSD, weeklyUsage, models } or
+ * throws; a 401 or a Claude Code with tools stops the run, anything else is
+ * recorded for the unit.
  * usage.inputTokens is the whole input, cache reads and writes included.
  * weeklyUsage.utilization is the used share of the weekly limit, 0 to 1.
+ * models are the models that answered; a flagged request can run again on
+ * another model.
  */
 async function ask(ws, input) {
   const { result: r, rateLimit } = await claude(ws, userMessage(input));
@@ -166,6 +177,7 @@ async function ask(ws, input) {
     },
     costUSD: r.total_cost_usd ?? null,
     weeklyUsage: week ? { utilization: week.utilization, resetsAt: week.resetsAt } : null,
+    models: Object.keys(r.modelUsage ?? {}),
   };
 }
 
@@ -198,12 +210,13 @@ let latestWeeklyUsage = null;
 /** Sends one unit to the model. Returns the answer, its checks, the usage and the cost. */
 async function askModel(ws, input) {
   const started = Date.now();
-  const result = { ok: false, error: null, problems: [], answer: null, counts: null, usage: null, costUSD: null, weeklyUsage: null, stop: null, responseId: null };
+  const result = { ok: false, error: null, problems: [], answer: null, counts: null, usage: null, costUSD: null, weeklyUsage: null, models: null, stop: null, responseId: null };
   try {
     const reply = await ask(ws, input);
     result.usage = reply.usage;
     result.costUSD = reply.costUSD;
     result.weeklyUsage = reply.weeklyUsage;
+    result.models = reply.models;
     latestWeeklyUsage = reply.weeklyUsage ?? latestWeeklyUsage;
     result.responseId = reply.id ?? null;
     result.stop = reply.stop;
@@ -219,7 +232,7 @@ async function askModel(ws, input) {
       if (!result.ok) result.error = `the answer does not follow the format: ${result.problems.join('; ')}`;
     }
   } catch (e) {
-    if (e.status === 401) throw e;
+    if (e.status === 401 || e.fatal) throw e;
     result.error = String(e.message ?? e);
   }
   result.seconds = Math.round((Date.now() - started) / 1000);
